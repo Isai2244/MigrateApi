@@ -52,7 +52,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors();
+// Apply the CORS middleware.
+app.UseCors("AllowAllOriginsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
