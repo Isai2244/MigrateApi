@@ -1,57 +1,90 @@
-﻿using Crate.MigrateMap.CrateDal;
-using DataAccessLawyer.Interfaces;
-using DataAccessLawyer.Models;
+﻿using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
+using Npgsql; // For database connection
 using MigrateMap.Bal.Interfaces;
 using MigrateMap.Bal.Models.Request;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using AutoMapper;
+using DataAccessLawyer.Interfaces;
+using DataAccessLawyer.Repository;
 
 namespace MigrateMap.Bal.Implementation
 {
     public class UserService : IUserService
     {
-        private MapperRepository _repository;
-        private IUnitOfWork _unitOfWork;
+        private readonly HttpClient _httpClient;
         private readonly IConfiguration _config;
-        public UserService(IUnitOfWork unitOfWork, IConfiguration config)
+        private IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        public UserService(IConfiguration config, HttpClient httpClient, IUnitOfWork unitOfWork, IMapper mapper)
         {
-            this._unitOfWork = unitOfWork;
-            _repository = new MapperRepository();
             _config = config;
+            _httpClient = httpClient;
+             _unitOfWork = unitOfWork;
+            _mapper = mapper;
         }
+
         public async Task<string> ValidateLogin(UserLoginRequest request)
         {
-            var userDetails = _unitOfWork.Users.Find(a => a.email.Trim().ToLower().Equals(request.UserName)).ToList();
-            if (userDetails.Count > 0)
+            // Step 1: Validate user in the database
+            var isValidUser = await ValidateUserInDatabase(request.UserName, request.Password);
+            if (!isValidUser)
             {
-                return await GenerateToken(new users { first_name = "Test", role = "Admin" });
+                throw new UnauthorizedAccessException("Invalid username or password.");
+            }
+
+            // Step 2: Generate token from Auth0
+            return await GenerateAuth0Token();
+        }
+
+        private async Task<bool> ValidateUserInDatabase(string username, string password)
+        {
+            // Fetch the user from the database using the email
+            var existingUser = _unitOfWork.Users
+                .Find(a => a.email.Trim().ToLower().Equals(username.Trim().ToLower()))
+                .FirstOrDefault();
+
+            if (existingUser == null)
+            {
+                return false; // User does not exist
             }
             else
             {
-                return string.Empty;
+                return true; // User is valid
             }
         }
-        private async Task<string> GenerateToken(users user)
+
+
+        private async Task<string> GenerateAuth0Token()
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-            var claims = new[]
+            var domain = _config["Auth0:Domain"];
+            var clientId = _config["Auth0:ClientId"];
+            var clientSecret = _config["Auth0:ClientSecret"];
+            var audiences = _config["Auth0:Audience"];
+            var tokenUrl = $"https://{domain}/oauth/token";
+
+            var payload = new
             {
-                new Claim(ClaimTypes.NameIdentifier,user.first_name),
-                new Claim(ClaimTypes.Role,user.role)
+                client_id = clientId,
+                client_secret = clientSecret,
+                audience = audiences,
+                grant_type = "client_credentials"
             };
-            var token = new JwtSecurityToken(_config["Jwt:Issuer"],
-                _config["Jwt:Audience"],
-                claims,
-                expires: DateTime.Now.AddDays(15),
-                signingCredentials: credentials);
 
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync(tokenUrl, content);
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("Failed to generate token from Auth0.");
+            }
 
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+
+            return tokenResponse.GetProperty("access_token").GetString();
         }
     }
 }

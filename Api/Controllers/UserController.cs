@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MigrateMap.Bal.Interfaces;
 using MigrateMap.Bal.Models.Request;
@@ -8,19 +7,32 @@ namespace Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class UserController : ControllerBase
     {
-        private IUserService _UserServ;
-        public UserController(IUserService UserServ)
+        private readonly IUserService _userService;
+
+        public UserController(IUserService userService)
         {
-            _UserServ = UserServ;
+            _userService = userService;
         }
-        [HttpGet]
+
+        [HttpPost("login")]
         [AllowAnonymous]
-        public async Task<IActionResult> Login([FromQuery] UserLoginRequest user)
+        public async Task<IActionResult> Login([FromBody] UserLoginRequest user)
         {
-            return Ok(await _UserServ.ValidateLogin(user));
+            try
+            {
+                var token = await _userService.ValidateLogin(user);
+                return Ok(new { Token = token });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { Error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Error = ex.Message });
+            }
         }
     }
 }
