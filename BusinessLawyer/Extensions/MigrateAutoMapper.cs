@@ -23,15 +23,27 @@ namespace MigrateMap.Bal.Extensions
                 .ForMember(dest => dest.Description, act => act.MapFrom(src => src.description))
                 .ReverseMap();
 
-            // MapDocRequest to MapDoc Mapping
             CreateMap<MapDocRequest, MapDoc>()
-                .ForMember(dest => dest.SqNo, opt => opt.Ignore()); // Ignore primary key during updates
+                .ForMember(dest => dest.SqNo, opt => opt.MapFrom(src => src.SqNo == 0 ? (int?)null : src.SqNo)) // Handle SqNo as nullable
+                .ForMember(dest => dest.ReusableLogicYN, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.ReusableLogicYN) ? "N" : src.ReusableLogicYN)) // Validate reusable_logic_y_n
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt ?? DateTime.UtcNow)) // Default UpdatedAt
+                .ForMember(dest => dest.MandatoryFieldS4, opt => opt.MapFrom(src => Truncate(src.MandatoryFieldS4, 50))) // Handle max length
+                .ForMember(dest => dest.InScopeForAuping, opt => opt.MapFrom(src => Truncate(src.InScopeForAuping, 50)))
+                .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => Truncate(src.FieldType, 50)))
+                .ForMember(dest => dest.SourceDataType, opt => opt.MapFrom(src => Truncate(src.SourceDataType, 50)))
+                .ForAllMembers(opt => opt.MapFrom(src => src)); // Map all other fields directly
 
-            // MapDoc to MapDocResponse Mapping
-            CreateMap<MapDoc, MapDocResponse>();
-
-            // MapDocResponse to MapDoc Mapping
+            // MapDoc to MapDocResponse (for returning to the client)
+            CreateMap<MapDoc, MapDocResponse>().ReverseMap();
             CreateMap<MapDocResponse, MapDoc>();
+
         }
+
+        // Utility method for truncating string values
+        private static string Truncate(string value, int maxLength)
+        {
+            return string.IsNullOrEmpty(value) ? null : value.Length > maxLength ? value.Substring(0, maxLength) : value;
+        }
+
     }
 }
