@@ -23,17 +23,26 @@ namespace MigrateMap.Bal.Extensions
                 .ForMember(dest => dest.Description, act => act.MapFrom(src => src.description))
                 .ReverseMap();
 
-            CreateMap<MapDocRequest, MapDoc>()
-                .ForMember(dest => dest.SqNo, opt => opt.MapFrom(src => src.SqNo == 0 ? (int?)null : src.SqNo)) // Handle SqNo as nullable
-                .ForMember(dest => dest.ReusableLogicYN, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.ReusableLogicYN) ? "N" : src.ReusableLogicYN)) // Validate reusable_logic_y_n
-                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt ?? DateTime.UtcNow)) // Default UpdatedAt
-                .ForMember(dest => dest.MandatoryFieldS4, opt => opt.MapFrom(src => Truncate(src.MandatoryFieldS4, 50))) // Handle max length
-                .ForMember(dest => dest.InScopeForAuping, opt => opt.MapFrom(src => Truncate(src.InScopeForAuping, 50)))
-                .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => Truncate(src.FieldType, 50)))
-                .ForMember(dest => dest.SourceDataType, opt => opt.MapFrom(src => Truncate(src.SourceDataType, 50)))
-                .ForAllMembers(opt => opt.MapFrom(src => src)); // Map all other fields directly
+            //CreateMap<MapDocRequest, MapDoc>()
+            //    .ForMember(dest => dest.SqNo, opt => opt.MapFrom(src => src.SqNo == 0 ? (int?)null : src.SqNo)) // Handle SqNo as nullable
+            //    .ForMember(dest => dest.ReusableLogicYN, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.ReusableLogicYN) ? "N" : src.ReusableLogicYN)) // Validate reusable_logic_y_n
+            //    .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt ?? DateTime.UtcNow)) // Default UpdatedAt
+            //    .ForMember(dest => dest.MandatoryFieldS4, opt => opt.MapFrom(src => Truncate(src.MandatoryFieldS4, 50))) // Handle max length
+            //    .ForMember(dest => dest.InScopeForAuping, opt => opt.MapFrom(src => Truncate(src.InScopeForAuping, 50)))
+            //    .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => Truncate(src.FieldType, 50)))
+            //    .ForMember(dest => dest.SourceDataType, opt => opt.MapFrom(src => Truncate(src.SourceDataType, 50)))
+            //    .ForAllMembers(opt => opt.MapFrom(src => src)); // Map all other fields directly
 
             // MapDoc to MapDocResponse (for returning to the client)
+            CreateMap<MapDocRequest, MapDoc>()
+               .ForMember(dest => dest.SqNo, opt => opt.MapFrom(src => src.SqNo == 0 ? (int?)null : src.SqNo))
+               .ForMember(dest => dest.ReusableLogicYN, opt => opt.MapFrom(src => string.IsNullOrEmpty(src.ReusableLogicYN) ? "N" : src.ReusableLogicYN))
+               .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt ?? DateTime.UtcNow))
+               .ForMember(dest => dest.MandatoryFieldS4, opt => opt.MapFrom(src => Truncate(src.MandatoryFieldS4, 50)))
+               .ForMember(dest => dest.InScopeForAuping, opt => opt.MapFrom(src => Truncate(src.InScopeForAuping, 50)))
+               .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => Truncate(src.FieldType, 50)))
+               .ForMember(dest => dest.SourceDataType, opt => opt.MapFrom(src => Truncate(src.SourceDataType, 50)))
+               .ReverseMap();
             CreateMap<MapDoc, MapDocResponse>().ReverseMap();
             CreateMap<MapDocResponse, MapDoc>();
 
